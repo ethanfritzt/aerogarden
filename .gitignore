@@ -1,0 +1,29 @@
+# ESP-IDF build artifacts
+build/
+.cache/
+sdkconfig
+sdkconfig.old
+*.bin
+*.elf
+*.map
+
+# Generated files
+log/
+compile_commands.json
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.clangd
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local secrets (if any)
+.env
+.env.local
+secrets/
