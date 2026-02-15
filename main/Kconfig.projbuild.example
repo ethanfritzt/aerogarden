@@ -1,0 +1,22 @@
+menu "Aerogarden Config"
+
+config MQTT_BROKER_URI
+    string "MQTT Broker URI"
+    default "mqtt://"
+    help
+        URI of the MQTT broker.
+
+config MQTT_USER
+    string "MQTT Username"
+    default "username"
+    help
+        Username
+
+config MQTT_PASS
+    string "MQTT Password"
+    default "pass"
+    help
+        Password
+
+endmenu
+
