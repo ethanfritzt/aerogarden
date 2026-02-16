@@ -105,7 +105,6 @@ void scheduler_task(void *arg)
         gpio_set_level(PUMP, pump_enabled);
         change_led(led_duty);
 
-
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 }
@@ -228,8 +227,7 @@ void wifi_init_sta(void)
 void app_main(void)
 {
     // initialize NVS
-    // needed for esp_wifi_init()
-    // to store credentials
+    // needed for esp_wifi & esp_mqtt
     nvs_flash_init();
 
     wifi_init_sta();
