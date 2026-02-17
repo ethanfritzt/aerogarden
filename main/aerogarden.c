@@ -11,13 +11,23 @@
 #include "esp_wifi.h"
 #include "esp_event.h"
 #include "nvs_flash.h"
+#include "freertos/event_groups.h"
 #include "esp_log.h"
 
-#define PUMP GPIO_NUM_27
+// GPIO pins
 #define LED_PANEL GPIO_NUM_33
+#define PUMP      GPIO_NUM_27
+
+// WIFI connected state
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT      BIT1
 
 static volatile bool pump_enabled = false;
 static volatile uint32_t led_duty = 0;
+
+// event group to signal when we are connected
+// and when we can start mqtt
+static EventGroupHandle_t s_wifi_event_group;
 
 // gamma correctness
 // correctness value = (linear_value/max_value)^gamma * max_value
@@ -39,20 +49,6 @@ static void change_led(uint32_t duty)
     uint32_t corrected = gamma_correct(duty);
     ledc_set_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0, corrected);
     ledc_update_duty(LEDC_HIGH_SPEED_MODE, LEDC_CHANNEL_0);
-}
-
-static void sunrise_led(void)
-{
-    uint32_t start_value = 0;
-
-    // max value defined by (2 ** duty_resolution)
-    uint32_t  max_value = pow(2, 12);
-
-    for (int i = start_value; i <= max_value; i ++) {
-        led_duty = i;
-
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
 }
 
 static void init_led(void)
@@ -139,8 +135,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 
             if (strncmp(event->topic, "home/aerogarden/led/set", event->topic_len) == 0) {
                 if (strncmp(event->data, "ON", event->data_len) == 0) {
-                    sunrise_led();
-
+                    led_duty = pow(2, 12);
                     esp_mqtt_client_publish(event->client, "home/aerogarden/led/state", "ON", 0, 1, 1);
                 }
 
@@ -177,12 +172,19 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base, int32_t e
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) { 
         esp_wifi_connect();
-        mqtt_app_start();
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        // TODO: retry logic
+        xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
 
 void wifi_init_sta(void)
 {
+    // create event group
+    s_wifi_event_group = xEventGroupCreate();
+
     // init network interface layer
     esp_netif_init();
 
@@ -221,6 +223,18 @@ void wifi_init_sta(void)
 
     // start wifi driver
     esp_wifi_start();
+
+    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT, pdFALSE, pdFALSE, portMAX_DELAY);
+
+    if (bits & WIFI_CONNECTED_BIT) {
+        // connected
+        // start mqtt
+        mqtt_app_start();
+    } else if (bits & WIFI_FAIL_BIT) {
+        // error did not connect
+    } else {
+        // unknown/unwanted state
+    }
 }
 
 
