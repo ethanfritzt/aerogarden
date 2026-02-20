@@ -1,5 +1,17 @@
 menu "Aerogarden Config"
 
+config WIFI_SSID
+    string "SSID"
+    default "ssid"
+    help
+        SSID of WIFI network
+
+config WIFI_PASS
+    string "WIFI Password"
+    default "pass"
+    help
+        Password for WIFI network
+
 config MQTT_BROKER_URI
     string "MQTT Broker URI"
     default "mqtt://"
